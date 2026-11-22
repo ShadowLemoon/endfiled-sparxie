@@ -42,3 +42,23 @@ target_compile_definitions(EndfieldRuntimeSelfTest PRIVATE ENDFIELD_RUNTIME_BUIL
 target_compile_options(EndfieldRuntimeSelfTest PRIVATE /EHa)
 target_link_libraries(EndfieldRuntimeSelfTest PRIVATE user32)
 add_test(NAME EndfieldRuntimeSelfTest COMMAND EndfieldRuntimeSelfTest)
+
+# ---- 插件自己的测试：设置解析、ini 读写、对真正构建出的 module.dll 的 ABI 合规测试 ----
+add_executable(SettingsTests settings_tests.cpp)
+endfield_test_target(SettingsTests)
+target_link_libraries(SettingsTests PRIVATE endfield_plugin_impl)
+add_test(NAME SettingsTests COMMAND SettingsTests)
+
+add_executable(UiIniTests ui_ini_tests.cpp)
+endfield_test_target(UiIniTests)
+target_link_libraries(UiIniTests PRIVATE endfield_plugin_impl)
+add_test(NAME UiIniTests COMMAND UiIniTests)
+
+# 运行 ABI 测试要用的东西都在同一个目录：module.dll、EndfieldRuntime.dll、FakeEndfield.exe、plugin.json
+add_executable(SpxAbiTests spx_abi_tests.cpp)
+endfield_test_target(SpxAbiTests)
+target_include_directories(SpxAbiTests PRIVATE ${CMAKE_SOURCE_DIR}/third_party/sparxie-plugin-abi)
+add_dependencies(SpxAbiTests sparxie_endfield_module EndfieldRuntime FakeEndfield)
+add_custom_command(TARGET SpxAbiTests POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/plugin.json $<TARGET_FILE_DIR:SpxAbiTests>/plugin.json)
+add_test(NAME SpxAbiTests COMMAND SpxAbiTests)

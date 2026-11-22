@@ -1,0 +1,102 @@
+// 对照 Sparxie 宿主的兼容性检查（手动运行，不属于本仓库的构建）。
+//
+// 用法：把本文件复制成 Sparxie 主仓库的 tests/Config.Tests/EndfieldHostCompatTests.cs（需要主仓库包含 settingsSchema 支持，即 feat/lemon-68-plugin-settings 之后的 main），
+// 然后设置环境变量 ENDFIELD_PLUGIN_DIR 指向打好的 ext.skyhua0224.endfield 目录（含 module.dll 与 plugin.json）并运行：
+//   $env:ENDFIELD_PLUGIN_DIR = "<...>\dist\ext.skyhua0224.endfield"; dotnet test tests/Config.Tests --filter EndfieldHostCompat
+//
+// 它用宿主自己的 manifest 解析、PluginCatalog、NativePluginLibrary（get_info 与 plugin.json 交叉核对）和 NativePluginSession（专用线程、超时）加载本插件。
+using System.Diagnostics;
+using Sparxie.Infrastructure.Plugins;
+
+namespace Config.Tests;
+
+public sealed class EndfieldHostCompatTests : IDisposable
+{
+    private const string Id = "ext.skyhua0224.endfield";
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "sparxie-endfield-compat", Guid.NewGuid().ToString("N"));
+    private static string? PackageDir => Environment.GetEnvironmentVariable("ENDFIELD_PLUGIN_DIR");
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_root, recursive: true); } catch { }
+    }
+
+    private (PluginCatalog Catalog, PluginEntry Entry)? Install()
+    {
+        if (PackageDir is not { Length: > 0 } source) { return null; }
+        var plugins = Path.Combine(_root, "plugins");
+        var dir = Path.Combine(plugins, Id);
+        Directory.CreateDirectory(dir);
+        foreach (var file in new[] { "module.dll", "plugin.json" })
+        {
+            File.Copy(Path.Combine(source, file), Path.Combine(dir, file));
+        }
+
+        var trust = new PluginTrustStore(Path.Combine(_root, "plugin-trust.json"));
+        var catalog = new PluginCatalog(plugins, trust);
+        var scanned = catalog.Scan().Single();
+        Assert.NotEqual(PluginAvailability.Invalid, scanned.Availability);
+        trust.Confirm(new PluginTrustRecord(Id, scanned.DllSha256!, scanned.ManifestSha256!, scanned.DllSize, DateTimeOffset.UtcNow));
+        return (catalog, catalog.Scan().Single());
+    }
+
+    [Fact]
+    public void 宿主的manifest解析接受plugin_json并解析出设置字段()
+    {
+        if (Install() is not var (_, entry)) { return; }
+        Assert.Equal(PluginAvailability.Ready, entry.Availability);
+        Assert.Equal(12, entry.Manifest!.Schema.Fields.Count);
+        var defaults = entry.Manifest.Schema.Normalize(null);
+        Assert.Equal("touch", (string)defaults["inputMode"]!);
+        Assert.Equal(140, (int)defaults["uiScalePercent"]!);
+        var odd = entry.Manifest.Schema.Normalize(System.Text.Json.Nodes.JsonNode.Parse("""{ "uiScalePercent": 133, "width": 99999, "safeAreaMode": "weird" }""")!.AsObject());
+        Assert.Equal(135, (int)odd["uiScalePercent"]!);
+        Assert.Equal(7680, (int)odd["width"]!);
+        Assert.Equal("auto", (string)odd["safeAreaMode"]!);
+    }
+
+    [Fact]
+    public void 宿主加载器能加载模块_get_info与manifest交叉核对通过()
+    {
+        if (Install() is not var (_, entry)) { return; }
+        using var library = NativePluginLibrary.Load(entry);
+        Assert.Equal(Id, library.Entry.Id);
+    }
+
+    [Fact]
+    public async Task 用宿主的会话层跑调用序列_没有内嵌厂商签名的游戏在假父进程这一步被安全拒绝()
+    {
+        if (Install() is not var (_, entry)) { return; }
+        var gameDir = Path.Combine(_root, "game");
+        Directory.CreateDirectory(gameDir);
+        // notepad.exe 只有目录签名，没有内嵌的厂商签名：生产路径（flags=0，永远校验）必须拒绝
+        var notepad = Path.Combine(Environment.SystemDirectory, "notepad.exe");
+        var exe = Path.Combine(gameDir, "Endfield.exe");
+        File.Copy(notepad, exe);
+        File.Copy(notepad, Path.Combine(gameDir, "PlatformProcess.exe"));
+        var dataDir = Path.Combine(_root, "data");
+        var logDir = Path.Combine(_root, "logs");
+        Directory.CreateDirectory(dataDir);
+
+        var settings = PluginSettingsSchema.ToJson(entry.Manifest!.Schema.Normalize(
+            System.Text.Json.Nodes.JsonNode.Parse("""{ "uiScaleMode": "manual", "uiScalePercent": 133, "safeAreaMode": "manual", "safeLeft": 186, "safeRight": 9999 }""")!.AsObject()));
+
+        using var library = NativePluginLibrary.Load(entry);
+        using var session = new NativePluginSession(library);
+        var timeout = TimeSpan.FromSeconds(60);
+        await session.CreateAsync(exe, string.Empty, settings, logDir, dataDir, timeout);
+        await session.PrepareLaunchAsync(timeout);
+
+        var ini = Directory.GetFiles(dataDir, "endfield-ui.ini", SearchOption.AllDirectories).Single();
+        Assert.Equal("ui_scale=1.35\r\nsafe_area=186,600\r\n", await File.ReadAllTextAsync(ini));
+        Assert.Single(Directory.GetFiles(dataDir, "EndfieldRuntime.dll", SearchOption.AllDirectories));
+
+        var ex = await Assert.ThrowsAsync<PluginCallException>(() => session.InstallAsync(0, timeout));
+        Assert.Equal(10, ex.Code);   // SPX_ERR_INTERNAL：假父进程这一步失败
+        Assert.Equal(5u, ex.Stage);  // ENDFIELD_STAGE_DECOY
+        Assert.Contains("数字签名无效", ex.Message);
+
+        Assert.Empty(Process.GetProcessesByName("Games"));
+        Assert.Empty(Directory.GetDirectories(gameDir));  // 假父进程的暂存目录没有残留
+    }
+}

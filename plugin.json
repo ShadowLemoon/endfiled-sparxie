@@ -1,0 +1,47 @@
+{
+  "id": "ext.skyhua0224.endfield",
+  "displayName": "明日方舟：终末地",
+  "abiMajor": 1,
+  "exeNames": ["Endfield.exe"],
+  "caps": ["createsProcess", "injects", "hotParams"],
+  "version": "0.1.0",
+  "license": "MIT（草案，待作者确认）",
+  "homepage": "https://github.com/skyhua0224/endfiled-sparxie",
+  "settingsSchema": {
+    "fields": [
+      {
+        "key": "inputMode", "label": "界面模式", "type": "enum", "default": "touch",
+        "options": [ { "value": "touch", "label": "触屏" }, { "value": "pc", "label": "键鼠" } ],
+        "hint": "触屏：运行库把游戏的输入类型保持在触控。键鼠：不干预输入类型（此时需要启用帧率解锁，否则没有可做的事）。"
+      },
+      {
+        "key": "autoResolution", "label": "分辨率跟随主显示器", "type": "bool", "default": true,
+        "hint": "关闭后使用下面的固定分辨率。"
+      },
+      { "key": "width", "label": "宽度（像素）", "type": "int", "min": 320, "max": 7680, "default": 1920, "showWhen": { "key": "autoResolution", "equals": false } },
+      { "key": "height", "label": "高度（像素）", "type": "int", "min": 240, "max": 4320, "default": 1080, "showWhen": { "key": "autoResolution", "equals": false } },
+      { "key": "refreshRate", "label": "刷新率（Hz）", "type": "int", "min": 24, "max": 1000, "default": 60, "showWhen": { "key": "autoResolution", "equals": false } },
+      {
+        "key": "fpsUnlock", "label": "解锁帧率", "type": "bool", "default": true,
+        "hint": "通过向游戏进程注入运行库实现，可能违反游戏用户协议并有被处理的风险。"
+      },
+      { "key": "targetFps", "label": "目标帧率", "type": "int", "min": 10, "max": 1000, "default": 120, "showWhen": { "key": "fpsUnlock", "equals": true } },
+      {
+        "key": "uiScaleMode", "label": "触控界面缩放", "type": "enum", "default": "auto",
+        "options": [ { "value": "auto", "label": "自动（按客户端设备）" }, { "value": "manual", "label": "手动" } ],
+        "showWhen": { "key": "inputMode", "equals": "touch" }
+      },
+      {
+        "key": "uiScalePercent", "label": "缩放比例（%）", "type": "int", "min": 100, "max": 180, "step": 5, "default": 140,
+        "showWhen": { "key": "uiScaleMode", "equals": "manual" }, "hint": "100–180，步长 5。运行中修改要下次启动才生效。"
+      },
+      {
+        "key": "safeAreaMode", "label": "安全边距", "type": "enum", "default": "auto",
+        "options": [ { "value": "auto", "label": "自动（按客户端设备）" }, { "value": "off", "label": "关闭" }, { "value": "manual", "label": "手动" } ],
+        "showWhen": { "key": "inputMode", "equals": "touch" }
+      },
+      { "key": "safeLeft", "label": "左边距（像素）", "type": "int", "min": 0, "max": 600, "default": 0, "showWhen": { "key": "safeAreaMode", "equals": "manual" } },
+      { "key": "safeRight", "label": "右边距（像素）", "type": "int", "min": 0, "max": 600, "default": 0, "showWhen": { "key": "safeAreaMode", "equals": "manual" } }
+    ]
+  }
+}
