@@ -1,0 +1,3 @@
+// 嵌入运行库。EndfieldRuntime.dll 由 CMake 在构建运行库后复制到 <build>/runtime_blob（该目录在 rc 的 include 路径里）。
+// 资源编号 101 与 runtime_extract.cpp 里的 kResourceId 对应。
+101 RCDATA "EndfieldRuntime.dll"

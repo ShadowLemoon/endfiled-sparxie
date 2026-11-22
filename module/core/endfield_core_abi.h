@@ -7,7 +7,10 @@
 extern "C" {
 #endif
 
-#if defined(_WIN32) && defined(ENDFIELD_CORE_BUILD)
+#if defined(ENDFIELD_CORE_STATIC)
+// 插件里核心是静态库：没有导出，也不导入（唯一的导出是 sparxie_module_query）。
+#define ENDFIELD_API
+#elif defined(_WIN32) && defined(ENDFIELD_CORE_BUILD)
 #define ENDFIELD_API __declspec(dllexport)
 #elif defined(_WIN32)
 #define ENDFIELD_API __declspec(dllimport)
@@ -48,10 +51,21 @@ typedef struct EndfieldLaunchRequest {
   uint32_t parent_source_path_chars;
   // The image copied to Games.exe and used as the game's parent. NULL/0 = PlatformProcess.exe in the game's folder.
   const wchar_t *parent_source_path;
+  // ---- added by the plugin; read only when `size` covers them (ENDFIELD_REQUEST_SIZE_V3) ----
+  // Full path of the EndfieldRuntime.dll to inject. NULL/0 = EndfieldRuntime.dll beside the module (the original behaviour).
+  const wchar_t *runtime_path;
+  // The file the launcher and the injected Runtime both log to. NULL/0 = the original place (SPARXIE_DATA_DIR\\logs or the folder above the module).
+  const wchar_t *log_file;
+  uint32_t runtime_path_chars;
+  uint32_t log_file_chars;
 } EndfieldLaunchRequest;
 
 // The size of the request before `flags` existed (the 4 bytes after game_executable_path_chars were padding).
 #define ENDFIELD_REQUEST_SIZE_V1 48u
+// The size of the request that ends with parent_source_path (the Sparxie PR #7 layout).
+#define ENDFIELD_REQUEST_SIZE_V2 64u
+// The size with runtime_path and log_file.
+#define ENDFIELD_REQUEST_SIZE_V3 88u
 
 // Test-only switches. The Broker's protocol has no field for them and SessionHost never sets them.
 #define ENDFIELD_FLAG_TEST_SKIP_SIGNER_CHECK 0x1u  // do not require Authenticode signatures on the game and the decoy source

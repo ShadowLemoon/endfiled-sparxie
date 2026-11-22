@@ -27,6 +27,8 @@ struct Session {
   EndfieldLaunchRequest request{};
   std::wstring executable;
   std::wstring parent_source;
+  std::wstring runtime_path;  // empty = EndfieldRuntime.dll beside this module
+  std::wstring log_file;      // empty = the original location (RuntimeLogPath)
   uint32_t flags = 0;
   endfield::Ops ops = endfield::RealOps();
   endfield::Decoy decoy;
@@ -146,6 +148,16 @@ std::filesystem::path RuntimeLogPath() {
   return base / L"endfield-runtime.log";
 }
 
+// The log file of one session: the path the plugin host gave (log_dir\\endfield-runtime.log), else the original lookup.
+std::filesystem::path LogFileFor(const Session &session) {
+  if (session.log_file.empty())
+    return RuntimeLogPath();
+  std::filesystem::path file(session.log_file);
+  std::error_code ignored;
+  std::filesystem::create_directories(file.parent_path(), ignored);
+  return file;
+}
+
 std::wstring BuildCommandLine(const Session &session) {
   std::wstring command = L"\"" + session.executable + L"\"";
   command += L" -screen-width " + std::to_wstring(session.request.width);
@@ -245,10 +257,16 @@ endfield_create_session(const EndfieldLaunchRequest *request,
   auto *session = new Session();
   // the first release's request ends before `flags`: copy only what the caller sent, the rest stays at the defaults
   std::memcpy(&session->request, request, std::min<size_t>(request->size, sizeof(EndfieldLaunchRequest)));
-  if (request->size >= sizeof(EndfieldLaunchRequest)) {
+  if (request->size >= ENDFIELD_REQUEST_SIZE_V2) {
     session->flags = request->flags;
     if (request->parent_source_path && request->parent_source_path_chars)
       session->parent_source.assign(request->parent_source_path, request->parent_source_path_chars);
+  }
+  if (request->size >= ENDFIELD_REQUEST_SIZE_V3) {
+    if (request->runtime_path && request->runtime_path_chars)
+      session->runtime_path.assign(request->runtime_path, request->runtime_path_chars);
+    if (request->log_file && request->log_file_chars)
+      session->log_file.assign(request->log_file, request->log_file_chars);
   }
   session->executable.assign(request->game_executable_path,
                              request->game_executable_path_chars);
@@ -381,15 +399,15 @@ ENDFIELD_API EndfieldError endfield_launch(void *handle,
   session->shared->touch_ui_enabled = session->request.touch_ui_enabled;
   session->shared->target_fps = session->request.target_fps;
   {
-    const std::wstring log_path = RuntimeLogPath().wstring();
+    const std::wstring log_path = LogFileFor(*session).wstring();
     wcsncpy_s(session->shared->log_path, endfield_shared::kLogPathChars, log_path.c_str(), _TRUNCATE);
   }
 
   // The Runtime is loaded after the game's first thread has started, the order Better-Endfield's loader uses for its bootstrap (create suspended, resume, then a remote LoadLibraryW):
   // a thread created in a process whose loader has not run yet starts that initialisation on its own, before the game's anti-cheat module and Unity are up, which is the
   // one place this build could not show its Runtime ever being loaded in the real game. The Runtime waits for the Unity window itself, so the late load costs nothing.
-  const auto runtime = ModuleDirectory() / L"EndfieldRuntime.dll";
-  const auto log_file = RuntimeLogPath();
+  const auto runtime = session->runtime_path.empty() ? ModuleDirectory() / L"EndfieldRuntime.dll" : std::filesystem::path(session->runtime_path);
+  const auto log_file = LogFileFor(*session);
   if (!std::filesystem::is_regular_file(runtime)) {
     TerminateProcess(session->process, 1);
     WaitForSingleObject(session->process, 5000);
