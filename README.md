@@ -65,3 +65,7 @@ powershell -File scripts\package.ps1 -Version 0.1.0
 
 `tests/host/HostCompatTests.cs.txt` 是一个可以复制进 Sparxie 主仓库 `tests/Config.Tests` 的测试：用宿主自己的 manifest 解析、插件目录、`NativePluginLibrary`（`get_info` 与 `plugin.json` 交叉核对）和会话层加载本插件，
 并确认没有内嵌厂商签名的游戏在假父进程这一步被安全拒绝。用法写在文件头。
+
+## 背景
+
+`plugin.json` 的 `backgroundApi` 请求鹰角启动器的 `get_main_bg_image` 接口（国服参数：appcode / channel / seq），Sparxie 主程序按声明取出图片和视频地址。参数来自对公开启动器接口的观察，并参考了 Collapse 的 [Hi3Helper.Plugin.Hypergryph](https://github.com/misaka10843/Hi3Helper.Plugin.Hypergryph)。国际服 / B 服的参数不同（见该项目的 Endfield 预设），目前只配了国服。
