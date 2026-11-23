@@ -4,6 +4,14 @@
   "abiMajor": 1,
   "exeNames": ["Endfield.exe"],
   "autoFind": { "uninstallNames": ["Endfield", "Arknights"] },
+  "backgroundApi": {
+    "url": "https://launcher.hypergryph.com/api/proxy/web/batch_proxy",
+    "method": "POST",
+    "body": { "seq": "5", "proxy_reqs": [ { "kind": "get_main_bg_image", "get_main_bg_image_req": { "appcode": "6LL0KJuqHBVz33WK", "language": "zh-cn", "channel": "1", "sub_channel": "1", "platform": "Windows", "source": "launcher" } } ] },
+    "path": "proxy_rsps.0.get_main_bg_image_rsp.main_bg_image",
+    "itemPath": "url",
+    "videoPath": "video_url"
+  },
   "caps": ["createsProcess", "injects", "hotParams"],
   "version": "0.1.0",
   "license": "MIT（草案，待作者确认）",
