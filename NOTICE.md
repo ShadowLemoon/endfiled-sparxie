@@ -59,3 +59,8 @@ SOFTWARE.
 ## 5. 本仓库自身的许可
 
 尚未决定，由代码作者（skyhua0224）选择；`plugin.json` 的 `license` 字段目前写的是"MIT（草案，待作者确认）"。
+
+## 6. 图标
+
+- `icon.ico`：来自 Collapse 的终末地插件 [misaka10843/Hi3Helper.Plugin.Hypergryph](https://github.com/misaka10843/Hi3Helper.Plugin.Hypergryph)（`Hi3Helper.Plugin.Endfield/icon.ico`，该仓库许可为 MIT）。
+  图标图案本身属于游戏的权利方；如果权利方或该项目作者有异议，请删除这个文件，Sparxie 会自动改用游戏 EXE 自带的图标。

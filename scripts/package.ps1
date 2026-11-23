@@ -27,7 +27,7 @@ $folder = Join-Path $Output $manifest.id
 if (Test-Path $folder) { Remove-Item $folder -Recurse -Force }
 New-Item -ItemType Directory -Force $folder | Out-Null
 Copy-Item (Join-Path $build 'bin\Release\module.dll') $folder
-foreach ($f in 'plugin.json', 'NOTICE.md', 'README.md') { Copy-Item (Join-Path $root $f) $folder }
+foreach ($f in 'plugin.json', 'NOTICE.md', 'README.md', 'icon.ico') { Copy-Item (Join-Path $root $f) $folder }
 
 $zip = Join-Path $Output ($manifest.id + '-' + $Version + '.zip')
 if (Test-Path $zip) { Remove-Item $zip -Force }
