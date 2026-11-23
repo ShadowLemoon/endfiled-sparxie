@@ -3,6 +3,7 @@
   "displayName": "明日方舟：终末地",
   "abiMajor": 1,
   "exeNames": ["Endfield.exe"],
+  "autoFind": { "uninstallNames": ["Endfield", "Arknights"] },
   "caps": ["createsProcess", "injects", "hotParams"],
   "version": "0.1.0",
   "license": "MIT（草案，待作者确认）",
