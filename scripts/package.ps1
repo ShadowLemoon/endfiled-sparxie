@@ -1,6 +1,6 @@
 # Builds Release and packs the plugin folder Sparxie expects: <DataRoot>\plugins\ext.<vendor>.<game>\{module.dll, plugin.json, ...}
 # ASCII-only script on purpose (Windows PowerShell 5 reads BOM-less files as ANSI).
-param([string]$Version = '', [string]$Output = '')
+param([string]$Version = '', [string]$Output = '', [string]$Generator = '')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 if (-not $Output) { $Output = Join-Path $root 'dist' }
@@ -11,12 +11,30 @@ $manifest = Get-Content -Raw -Encoding UTF8 (Join-Path $root 'plugin.json') | Co
 if (-not $Version) { $Version = $manifest.version }
 if ($Version -ne $manifest.version) { throw "Version $Version does not match plugin.json ($($manifest.version))" }
 
+# Use the CMake bundled with the newest Visual Studio (falls back to cmake/ctest on PATH, e.g. on CI runners)
+# and the matching generator; -Generator overrides the detection.
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-$vs = & $vswhere -latest -products '*' -property installationPath
-$cmake = Join-Path $vs 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
-$ctest = Join-Path $vs 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\ctest.exe'
+$cmake = 'cmake'
+$ctest = 'ctest'
+$generatorName = $Generator
+if (Test-Path $vswhere) {
+  $vs = (& $vswhere -latest -products '*' -property installationPath | Select-Object -First 1)
+  $vsVersion = (& $vswhere -latest -products '*' -property installationVersion | Select-Object -First 1)
+  $bundled = Join-Path $vs 'Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin'
+  if (Test-Path (Join-Path $bundled 'cmake.exe')) {
+    $cmake = Join-Path $bundled 'cmake.exe'
+    $ctest = Join-Path $bundled 'ctest.exe'
+  }
+  if (-not $generatorName -and $vsVersion) {
+    $known = @{ '17' = 'Visual Studio 17 2022'; '18' = 'Visual Studio 18 2026' }
+    $major = ($vsVersion -split '\.')[0]
+    if ($known.ContainsKey($major)) { $generatorName = $known[$major] }
+  }
+}
+$generatorArgs = @()
+if ($generatorName) { $generatorArgs = @('-G', $generatorName) }
 $build = Join-Path $root 'build'
-& $cmake -S $root -B $build -G 'Visual Studio 18 2026' -A x64 | Out-Null
+& $cmake -S $root -B $build @generatorArgs -A x64 | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'cmake configure failed' }
 & $cmake --build $build --config Release | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'cmake build failed' }

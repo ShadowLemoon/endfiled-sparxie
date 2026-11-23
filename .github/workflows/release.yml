@@ -1,0 +1,95 @@
+name: release
+
+# 发布流程见 docs/RELEASING.md。推一个形如 v0.1.0 的 tag 就会：构建、跑原生测试、校验 plugin.json、打包、
+# 生成带哈希的发布说明，并创建 GitHub Release（zip、哈希清单、发布说明）。
+# 已经存在同名 Release 时直接失败：module.dll 每次编译哈希都不同，不能覆盖已经发布的文件，要改版本号重发。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '已存在的 tag（例如 v0.1.0），用来手动重跑；已有同名 Release 时会失败'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      INPUT_TAG: ${{ github.event.inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve tag and check it matches plugin.json
+        id: tag
+        shell: powershell
+        run: |
+          $tag = $env:INPUT_TAG
+          if (-not $tag) { $tag = '${{ github.ref_name }}' }
+          if ($tag -notmatch '^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Tag '$tag' is not like v1.2.3 or v1.2.3-rc.1" }
+          $manifest = Get-Content -Raw -Encoding UTF8 plugin.json | ConvertFrom-Json
+          if ($tag -ne ('v' + $manifest.version)) { throw "Tag $tag does not match plugin.json version $($manifest.version). Bump the version first." }
+          "tag=$tag" | Out-File -Append -Encoding ascii $env:GITHUB_OUTPUT
+          "version=$($manifest.version)" | Out-File -Append -Encoding ascii $env:GITHUB_OUTPUT
+          "id=$($manifest.id)" | Out-File -Append -Encoding ascii $env:GITHUB_OUTPUT
+          "prerelease=$($tag.Contains('-').ToString().ToLower())" | Out-File -Append -Encoding ascii $env:GITHUB_OUTPUT
+
+      - name: Refuse to overwrite an existing release
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Continue'  # a missing release makes gh print to stderr, which must not abort the step
+          gh release view '${{ steps.tag.outputs.tag }}' 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) { throw "Release ${{ steps.tag.outputs.tag }} already exists. module.dll is not reproducible, so published files must not be replaced: bump the version." }
+          $global:LASTEXITCODE = 0
+
+      - name: Build, test, verify and package
+        shell: powershell
+        run: ./scripts/package.ps1 -Version '${{ steps.tag.outputs.version }}'
+
+      - name: Check the package contents
+        shell: powershell
+        run: |
+          $zip = "dist/${{ steps.tag.outputs.id }}-${{ steps.tag.outputs.version }}.zip"
+          $check = Join-Path $env:RUNNER_TEMP 'package-check'
+          Expand-Archive -Path $zip -DestinationPath $check -Force
+          $folder = Join-Path $check '${{ steps.tag.outputs.id }}'
+          foreach ($file in 'module.dll', 'plugin.json', 'NOTICE.md', 'README.md', 'icon.ico') {
+            if (-not (Test-Path (Join-Path $folder $file))) { throw "package is missing $file" }
+          }
+          $packaged = Get-Content -Raw -Encoding UTF8 (Join-Path $folder 'plugin.json') | ConvertFrom-Json
+          if ($packaged.id -ne '${{ steps.tag.outputs.id }}') { throw 'packaged plugin.json id mismatch' }
+          if ($packaged.version -ne '${{ steps.tag.outputs.version }}') { throw 'packaged plugin.json version mismatch' }
+          Get-ChildItem $folder | Select-Object Name, Length | Format-Table -AutoSize | Out-String | Write-Host
+
+      - name: Write release notes
+        shell: powershell
+        run: ./scripts/make_release_notes.ps1 -Tag '${{ steps.tag.outputs.tag }}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.tag.outputs.id }}-${{ steps.tag.outputs.version }}
+          path: |
+            dist/*.zip
+            dist/*.sha256.txt
+            dist/RELEASE_NOTES.md
+
+      - name: Create the GitHub release
+        shell: powershell
+        run: |
+          $releaseArgs = @(
+            'release', 'create', '${{ steps.tag.outputs.tag }}',
+            '--title', "${{ steps.tag.outputs.id }} ${{ steps.tag.outputs.version }}",
+            '--notes-file', 'dist/RELEASE_NOTES.md',
+            '--verify-tag'
+          )
+          if ('${{ steps.tag.outputs.prerelease }}' -eq 'true') { $releaseArgs += '--prerelease' }
+          $releaseArgs += (Get-ChildItem dist -File | Where-Object { $_.Name -like '*.zip' -or $_.Name -like '*.sha256.txt' } | ForEach-Object { $_.FullName })
+          & gh @releaseArgs
+          if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }

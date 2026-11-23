@@ -51,8 +51,9 @@ ctest --test-dir build -C Release --output-on-failure
 powershell -File scripts\package.ps1 -Version 0.1.0
 ```
 
-得到 `dist\ext.skyhua0224.endfield-0.1.0.zip`（解压后是一个 `ext.skyhua0224.endfield\` 目录，含 `module.dll`、`plugin.json`、`NOTICE.md`、`README.md`）和 SHA-256 清单。
+得到 `dist\ext.skyhua0224.endfield-0.1.0.zip`（解压后是一个 `ext.skyhua0224.endfield\` 目录，含 `module.dll`、`plugin.json`、`NOTICE.md`、`README.md`、`icon.ico`）和 SHA-256 清单。
 把整个 `ext.skyhua0224.endfield` 目录放进 Sparxie 数据目录的 `plugins\` 下，在 Sparxie 设置页「第三方游戏插件」里确认后才会启用。
+正式发布走 GitHub Actions：推一个与 `plugin.json` 版本一致的 tag（如 `v0.2.0`）即可自动构建、测试、打包并创建带 SHA-256 的 Release，流程见 [`docs/RELEASING.md`](docs/RELEASING.md)。
 
 ## 设计要点
 
