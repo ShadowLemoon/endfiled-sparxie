@@ -27,7 +27,13 @@ $folder = Join-Path $Output $manifest.id
 if (Test-Path $folder) { Remove-Item $folder -Recurse -Force }
 New-Item -ItemType Directory -Force $folder | Out-Null
 Copy-Item (Join-Path $build 'bin\Release\module.dll') $folder
-foreach ($f in 'plugin.json', 'NOTICE.md', 'README.md') { Copy-Item (Join-Path $root $f) $folder }
+# Text files are normalized to LF so the packaged bytes (and plugin.json's SHA-256 that the host asks the user to confirm)
+# do not depend on git's core.autocrlf checkout setting.
+foreach ($f in 'plugin.json', 'NOTICE.md', 'README.md') {
+  $text = [System.IO.File]::ReadAllText((Join-Path $root $f)).Replace("`r`n", "`n")
+  [System.IO.File]::WriteAllText((Join-Path $folder $f), $text, (New-Object System.Text.UTF8Encoding $false))
+}
+Copy-Item (Join-Path $root 'icon.ico') $folder
 
 $zip = Join-Path $Output ($manifest.id + '-' + $Version + '.zip')
 if (Test-Path $zip) { Remove-Item $zip -Force }
