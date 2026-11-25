@@ -32,7 +32,6 @@ runtime/                 注入游戏进程的运行库 EndfieldRuntime.dll（�
 tests/native/            原生测试（PR 原有 + 设置/ini/ABI 合规测试）和假游戏
 third_party/             Sparxie 插件 ABI 头文件（MIT）
 docs/                    运行库的契约文档（云模式、endfield-ui.ini）
-scripts/                 构建、打包、清单校验
 ```
 
 ## 构建与测试（Windows，Visual Studio 2026 + CMake）
@@ -45,14 +44,21 @@ ctest --test-dir build -C Release --output-on-failure
 
 产物在 `build\bin\Release\`：`module.dll`（唯一导出 `sparxie_module_query`，运行库已嵌在里面）、`EndfieldRuntime.dll`（仅用于测试，发布不需要）。
 
-## 打包
+## 打包与发布
+
+校验、打包和发布脚本在 [sparxie-dev/plugin-tools](https://github.com/sparxie-dev/plugin-tools)，本仓库只有两个调用它的工作流（`validate.yml`、`release.yml`）。
+
+- push / PR：校验 `plugin.json`，编译、跑原生测试、打包，并加载编出来的 `module.dll` 和 `plugin.json` 核对。
+- 发布：把 `plugin.json` 的 `version` 和 `module/spx_module.h` 的 `kPluginVersion` 一起改成新版本，合进 `main` 后推 tag `v<版本>`。工作流会创建带 SHA-256 的 GitHub Release；版本号带 `-`（如 `0.2.0-rc.1`）标成预发布。同名 Release 已存在会直接失败，要改版本号重发。
+
+本地想打包（需要 Python 3.11+）：
 
 ```powershell
-powershell -File scripts\package.ps1 -Version 0.1.0
+git clone --depth 1 --branch v1 https://github.com/sparxie-dev/plugin-tools.git .plugin-tools
+python .plugin-tools/scripts/build_plugin.py --repo .
 ```
 
-得到 `dist\ext.skyhua0224.endfield-0.1.0.zip`（解压后是一个 `ext.skyhua0224.endfield\` 目录，含 `module.dll`、`plugin.json`、`NOTICE.md`、`README.md`）和 SHA-256 清单。
-把整个 `ext.skyhua0224.endfield` 目录放进 Sparxie 数据目录的 `plugins\` 下，在 Sparxie 设置页「第三方游戏插件」里确认后才会启用。
+得到 `dist\ext.skyhua0224.endfield-<版本>.zip` 和 SHA-256 清单。在 Sparxie 设置页「第三方游戏插件」里导入这个 zip（或拖进去），确认后启用。
 
 ## 设计要点
 
