@@ -8,7 +8,7 @@ namespace endfield_plugin {
 // 函数表（静态存储期）。module_main.cpp 的导出函数返回它；测试可以不经 DLL 直接用。
 const SpxModuleApi *GetModuleApi();
 
-// 插件 id / 版本（plugin.json 必须与之一致，scripts/verify_manifest.ps1 会检查）
+// 插件 id / 版本（plugin.json 必须与之一致，发布工作流加载 module.dll 后会核对）
 constexpr const wchar_t *kPluginId = L"ext.skyhua0224.endfield";
 constexpr const wchar_t *kPluginVersion = L"0.1.0";
 
