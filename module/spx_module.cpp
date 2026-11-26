@@ -141,6 +141,8 @@ SpxError CreateSession(const SpxLaunchRequest *request, SpxResult *result, void 
 
   auto session = std::make_unique<Session>();
   session->settings = ParseSettings(request->settings_json.p ? std::wstring_view(request->settings_json.p, request->settings_json.chars) : std::wstring_view());
+  if (request->size >= offsetof(SpxLaunchRequest, disable_touch_ui) + sizeof(request->disable_touch_ui) && request->disable_touch_ui != 0)
+    session->settings.input_mode = "pc";
   const ModuleSettings &s = session->settings;
   session->exe_path = ToWide(request->exe_path);
   const std::wstring data_dir = ToWide(request->data_dir);
@@ -320,7 +322,7 @@ void InitTables() {
   g_info.id = {kPluginId, static_cast<uint32_t>(wcslen(kPluginId))};
   g_info.display_name = {L"明日方舟：终末地", 8};
   g_info.version = {kPluginVersion, static_cast<uint32_t>(wcslen(kPluginVersion))};
-  g_info.caps = SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_HOT_PARAMS;
+  g_info.caps = SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_HOT_PARAMS | SPX_CAP_DISABLE_TOUCH_UI;
   g_info.exe_names = kExeNames;
   g_info.exe_count = 1;
 

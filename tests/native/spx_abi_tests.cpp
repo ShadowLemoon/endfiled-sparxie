@@ -120,7 +120,7 @@ void TestInfoMatchesManifest() {
   CHECK(id == L"ext.skyhua0224.endfield");
   CHECK(info->exe_count == 1 && info->exe_names != nullptr);
   CHECK(std::wstring(info->exe_names[0].p, info->exe_names[0].chars) == L"Endfield.exe");
-  CHECK(info->caps == (SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_HOT_PARAMS));
+  CHECK(info->caps == (SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_HOT_PARAMS | SPX_CAP_DISABLE_TOUCH_UI));
 
   // plugin.json（构建时复制到可执行文件旁边）必须和 get_info 一致，宿主加载时也会交叉核对
   const std::string manifest = ReadAll(ExeDir() / L"plugin.json");
@@ -130,6 +130,7 @@ void TestInfoMatchesManifest() {
   CHECK(manifest.find("\"createsProcess\"") != std::string::npos);
   CHECK(manifest.find("\"injects\"") != std::string::npos);
   CHECK(manifest.find("\"hotParams\"") != std::string::npos);
+  CHECK(manifest.find("\"disableTouchUi\"") != std::string::npos);
   CHECK(manifest.find("\"needsArgs\"") == std::string::npos);
   CHECK(manifest.find("\"abiMajor\": 1") != std::string::npos);
   const std::wstring version(info->version.p, info->version.chars);
@@ -169,6 +170,36 @@ void TestCreateSessionRefusesBadRequests() {
   CHECK(result.error_code == SPX_ERR_INVALID_ARGUMENT);
   CHECK(result.message[0] != 0);
   CHECK(wcsnlen(result.message, 512) < 512);  // 以 NUL 结尾，信息在宿主给的内联缓冲里
+}
+
+void TestDisableTouchUiHonorsSizeAndOverridesInputMode() {
+  const Loaded loaded = LoadModuleOnce();
+  void *session = nullptr;
+  SpxResult result = NewResult();
+
+  // ABI 1.1 disable_touch_ui=1 覆盖 settings.inputMode="touch"；未开帧率解锁时无事可做应拒绝。
+  Fixture no_fps(L"{\"inputMode\":\"touch\",\"fpsUnlock\":false}");
+  no_fps.request.disable_touch_ui = 1;
+  CHECK(loaded.api->create_session(&no_fps.request, &result, &session) == SPX_ERR_INVALID_ARGUMENT);
+  CHECK(session == nullptr);
+
+  // 开启帧率解锁时，disable_touch_ui=1 正常创建会话（仅解锁帧率、关闭触屏界面）。
+  Fixture with_fps(L"{\"inputMode\":\"touch\",\"fpsUnlock\":true}");
+  with_fps.request.disable_touch_ui = 1;
+  result = NewResult();
+  CHECK(loaded.api->create_session(&with_fps.request, &result, &session) == SPX_OK);
+  CHECK(session != nullptr);
+  CHECK(loaded.api->release(session) == SPX_OK);
+
+  // 老宿主（ABI 1.0）的 request->size 不覆盖 disable_touch_ui 时，不得越界读取，继续按 settings.inputMode 生效。
+  Fixture abi10(L"{\"inputMode\":\"touch\",\"fpsUnlock\":false}");
+  abi10.request.size = offsetof(SpxLaunchRequest, disable_touch_ui);
+  abi10.request.disable_touch_ui = 1;
+  session = nullptr;
+  result = NewResult();
+  CHECK(loaded.api->create_session(&abi10.request, &result, &session) == SPX_OK);
+  CHECK(session != nullptr);
+  CHECK(loaded.api->release(session) == SPX_OK);
 }
 
 void TestResultSmallerThanTheBufferIsNotWrittenBeyondItsSize() {
@@ -362,6 +393,7 @@ int wmain() {
   Run("abi: version negotiation", TestVersionNegotiation);
   Run("abi: get_info matches plugin.json", TestInfoMatchesManifest);
   Run("abi: create_session refuses bad requests with an inline message", TestCreateSessionRefusesBadRequests);
+  Run("abi: disable_touch_ui honors request size and overrides inputMode", TestDisableTouchUiHonorsSizeAndOverridesInputMode);
   Run("abi: a result smaller than the buffer is not written beyond its size", TestResultSmallerThanTheBufferIsNotWrittenBeyondItsSize);
   Run("runtime: extracted to data_dir, verified, and locked while the session lives", TestRuntimeIsExtractedVerifiedAndLocked);
   Run("runtime: a tampered extracted file is replaced", TestATamperedRuntimeFileIsReplaced);
