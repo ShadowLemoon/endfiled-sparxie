@@ -145,6 +145,7 @@ SpxError CreateSession(const SpxLaunchRequest *request, SpxResult *result, void 
     session->settings.input_mode = "pc";
   const ModuleSettings &s = session->settings;
   session->exe_path = ToWide(request->exe_path);
+  const std::wstring arguments = ToWide(request->arguments);  // the profile's launch settings, built by the host (needsArgs)
   const std::wstring data_dir = ToWide(request->data_dir);
   const std::wstring log_dir = ToWide(request->log_dir);
   if (session->exe_path.empty() || data_dir.empty())
@@ -197,6 +198,8 @@ SpxError CreateSession(const SpxLaunchRequest *request, SpxResult *result, void 
   core_request.runtime_path_chars = static_cast<uint32_t>(runtime_dll.size());
   core_request.log_file = log_file.empty() ? nullptr : log_file.c_str();
   core_request.log_file_chars = static_cast<uint32_t>(log_file.size());
+  core_request.extra_arguments = arguments.empty() ? nullptr : arguments.c_str();
+  core_request.extra_arguments_chars = static_cast<uint32_t>(arguments.size());
 
   EndfieldResult core_result = NewCoreResult();
   const EndfieldError rc = endfield_create_session(&core_request, &core_result, &session->core);
@@ -322,7 +325,7 @@ void InitTables() {
   g_info.id = {kPluginId, static_cast<uint32_t>(wcslen(kPluginId))};
   g_info.display_name = {L"明日方舟：终末地", 8};
   g_info.version = {kPluginVersion, static_cast<uint32_t>(wcslen(kPluginVersion))};
-  g_info.caps = SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_HOT_PARAMS | SPX_CAP_DISABLE_TOUCH_UI;
+  g_info.caps = SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_NEEDS_ARGS | SPX_CAP_HOT_PARAMS | SPX_CAP_DISABLE_TOUCH_UI;
   g_info.exe_names = kExeNames;
   g_info.exe_count = 1;
 

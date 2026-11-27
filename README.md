@@ -34,6 +34,8 @@ third_party/             Sparxie 插件 ABI 头文件（MIT）
 docs/                    运行库的契约文档（云模式、endfield-ui.ini）
 ```
 
+Sparxie 配置里的附加启动参数（和无边框开关生成的 `-popupwindow`）原样追加到游戏命令行的屏幕参数之后（`plugin.json` 声明了 `needsArgs`）。游戏是否接受某个参数没有验证过。
+
 ## 构建与测试（Windows，Visual Studio 2026 + CMake）
 
 ```powershell

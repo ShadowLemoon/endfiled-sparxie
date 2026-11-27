@@ -29,6 +29,7 @@ struct Session {
   std::wstring parent_source;
   std::wstring runtime_path;  // empty = EndfieldRuntime.dll beside this module
   std::wstring log_file;      // empty = the original location (RuntimeLogPath)
+  std::wstring extra_arguments;
   uint32_t flags = 0;
   endfield::Ops ops = endfield::RealOps();
   endfield::Decoy decoy;
@@ -165,6 +166,9 @@ std::wstring BuildCommandLine(const Session &session) {
   command +=
       L" -screen-refresh-rate " + std::to_wstring(session.request.refresh_rate);
   command += L" -screen-fullscreen 1";
+  // after the screen arguments, so that what the person typed is the later word
+  if (!session.extra_arguments.empty())
+    command += L" " + session.extra_arguments;
   return command;
 }
 
@@ -268,6 +272,8 @@ endfield_create_session(const EndfieldLaunchRequest *request,
     if (request->log_file && request->log_file_chars)
       session->log_file.assign(request->log_file, request->log_file_chars);
   }
+  if (request->size >= ENDFIELD_REQUEST_SIZE_V4 && request->extra_arguments && request->extra_arguments_chars)
+    session->extra_arguments.assign(request->extra_arguments, request->extra_arguments_chars);
   session->executable.assign(request->game_executable_path,
                              request->game_executable_path_chars);
   session->active = true;

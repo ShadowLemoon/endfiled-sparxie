@@ -58,6 +58,10 @@ typedef struct EndfieldLaunchRequest {
   const wchar_t *log_file;
   uint32_t runtime_path_chars;
   uint32_t log_file_chars;
+  // ---- read only when `size` covers them (ENDFIELD_REQUEST_SIZE_V4) ----
+  // Appended to the game's command line, as given, after the screen arguments. NULL/0 = nothing.
+  const wchar_t *extra_arguments;
+  uint32_t extra_arguments_chars;
 } EndfieldLaunchRequest;
 
 // The size of the request before `flags` existed (the 4 bytes after game_executable_path_chars were padding).
@@ -66,6 +70,8 @@ typedef struct EndfieldLaunchRequest {
 #define ENDFIELD_REQUEST_SIZE_V2 64u
 // The size with runtime_path and log_file.
 #define ENDFIELD_REQUEST_SIZE_V3 88u
+// The size with extra_arguments.
+#define ENDFIELD_REQUEST_SIZE_V4 104u
 
 // Test-only switches. The Broker's protocol has no field for them and SessionHost never sets them.
 #define ENDFIELD_FLAG_TEST_SKIP_SIGNER_CHECK 0x1u  // do not require Authenticode signatures on the game and the decoy source

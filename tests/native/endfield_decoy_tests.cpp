@@ -520,6 +520,28 @@ void TestEndToEndSourceMissing() {
   CHECK(endfield_release(s.handle) == ENDFIELD_OK);
 }
 
+// the profile's extra launch arguments reach the game after the screen arguments; a request that ends before the field carries none
+void TestEndToEndExtraArguments() {
+  const std::wstring extra = L"-force-d3d11 -popupwindow";
+  for (const uint32_t size : {static_cast<uint32_t>(sizeof(EndfieldLaunchRequest)), ENDFIELD_REQUEST_SIZE_V3}) {
+    E2eFixture fx(1500);
+    Job job;
+    Session s = NewSession(fx.game, kTestFlags);
+    s.request.extra_arguments = extra.c_str();
+    s.request.extra_arguments_chars = static_cast<uint32_t>(extra.size());
+    s.request.size = size;
+    CHECK(endfield_create_session(&s.request, &s.result, &s.handle) == ENDFIELD_OK);
+    CHECK(endfield_attach_job(s.handle, job.handle, &s.result) == ENDFIELD_OK);
+    CHECK(endfield_launch(s.handle, &s.result) == ENDFIELD_OK);
+    CHECK(WaitFile(fx.record, 10000));
+    const std::wstring command = Field(ReadWide(fx.record), L"cmdline");
+    CHECK(command.find(L"-screen-fullscreen 1") != std::wstring::npos);
+    CHECK((command.find(L"-screen-fullscreen 1 " + extra) != std::wstring::npos) == (size == sizeof(EndfieldLaunchRequest)));
+    CHECK(endfield_wait_game_exit(s.handle, 15000, &s.result) == ENDFIELD_OK);
+    CHECK(endfield_release(s.handle) == ENDFIELD_OK);
+  }
+}
+
 void TestEndToEndOldClientSize() {
   // a client built before `flags` existed sends ENDFIELD_REQUEST_SIZE_V1 bytes: it gets the defaults (decoy on, signatures required)
   E2eFixture fx(1000);
@@ -592,6 +614,7 @@ int wmain(int argc, wchar_t **argv) {
   Run("e2e: closing the session job kills the game and the decoy", TestEndToEndJobClose);
   Run("e2e: an unsigned image fails closed before any process is created", TestEndToEndSignerCheckFailsClosed);
   Run("e2e: a missing decoy source fails with the decoy stage", TestEndToEndSourceMissing);
+  Run("e2e: a request of the first ABI size gets the defaults", TestEndToEndExtraArguments);
   Run("e2e: a request of the first ABI size gets the defaults", TestEndToEndOldClientSize);
   Run("e2e: a real signed image passes the production signature check; unsigned ones do not", TestEndToEndRealSignature);
 

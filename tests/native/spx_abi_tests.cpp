@@ -120,7 +120,7 @@ void TestInfoMatchesManifest() {
   CHECK(id == L"ext.skyhua0224.endfield");
   CHECK(info->exe_count == 1 && info->exe_names != nullptr);
   CHECK(std::wstring(info->exe_names[0].p, info->exe_names[0].chars) == L"Endfield.exe");
-  CHECK(info->caps == (SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_HOT_PARAMS | SPX_CAP_DISABLE_TOUCH_UI));
+  CHECK(info->caps == (SPX_CAP_CREATES_PROCESS | SPX_CAP_INJECTS | SPX_CAP_NEEDS_ARGS | SPX_CAP_HOT_PARAMS | SPX_CAP_DISABLE_TOUCH_UI));
 
   // plugin.json（构建时复制到可执行文件旁边）必须和 get_info 一致，宿主加载时也会交叉核对
   const std::string manifest = ReadAll(ExeDir() / L"plugin.json");
@@ -131,7 +131,7 @@ void TestInfoMatchesManifest() {
   CHECK(manifest.find("\"injects\"") != std::string::npos);
   CHECK(manifest.find("\"hotParams\"") != std::string::npos);
   CHECK(manifest.find("\"disableTouchUi\"") != std::string::npos);
-  CHECK(manifest.find("\"needsArgs\"") == std::string::npos);
+  CHECK(manifest.find("\"needsArgs\"") != std::string::npos);
   CHECK(manifest.find("\"abiMajor\": 1") != std::string::npos);
   const std::wstring version(info->version.p, info->version.chars);
   std::string version_ascii;

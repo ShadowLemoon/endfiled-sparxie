@@ -12,8 +12,8 @@
     "itemPath": "url",
     "videoPath": "video_url"
   },
-  "caps": ["createsProcess", "injects", "hotParams", "disableTouchUi"],
-  "version": "0.1.0",
+  "caps": ["createsProcess", "injects", "needsArgs", "hotParams", "disableTouchUi"],
+  "version": "0.1.1-args.1",
   "license": "MIT（草案，待作者确认）",
   "homepage": "https://github.com/skyhua0224/endfiled-sparxie",
   "settingsSchema": {
