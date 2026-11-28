@@ -10,6 +10,6 @@ const SpxModuleApi *GetModuleApi();
 
 // 插件 id / 版本（plugin.json 必须与之一致，发布工作流加载 module.dll 后会核对）
 constexpr const wchar_t *kPluginId = L"ext.skyhua0224.endfield";
-constexpr const wchar_t *kPluginVersion = L"0.1.1-args.1";
+constexpr const wchar_t *kPluginVersion = L"0.1.1";
 
 }  // namespace endfield_plugin
